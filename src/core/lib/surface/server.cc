@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015-2016 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +46,12 @@
 #include "src/core/lib/surface/init.h"
 #include "src/core/lib/transport/metadata.h"
 #include "src/core/lib/transport/static_metadata.h"
+
+//----begin---
+#include "orientsec_grpc_utils.h"
+#include "orientsec_grpc_properties_tools.h"
+#include "orientsec_provider_intf.h"
+//----end---
 
 grpc_core::TraceFlag grpc_server_channel_trace(false, "server_channel");
 
@@ -361,6 +369,19 @@ static void request_matcher_destroy(request_matcher* rm) {
   }
   gpr_free(rm->requests_per_cq);
 }
+
+//----begin----
+static void cancel_client_method_call_concurrent_request(
+    void* elem, grpc_error* error) {
+  grpc_call_error err = grpc_call_cancel_with_status(
+      grpc_call_from_top_element((grpc_call_element *) elem),
+      GRPC_STATUS_CANCELLED, ORIENTSEC_GRPC_PROVIDER_TOO_MANY_REQUEST, NULL);
+  if (err != GRPC_CALL_OK) {
+    gpr_log(GPR_ERROR, "cancel_client_method_call_concurrent_request failed with: %d",
+            err);
+  }
+}
+//-----end-----
 
 static void kill_zombie(void* elem, grpc_error* error) {
   grpc_call_unref(
@@ -834,6 +855,33 @@ static void got_initial_metadata(void* ptr, grpc_error* error) {
   grpc_call_element* elem = static_cast<grpc_call_element*>(ptr);
   call_data* calld = static_cast<call_data*>(elem->call_data);
   if (error == GRPC_ERROR_NONE) {
+
+    //----begin----
+    //并发请求控制代码、服务访问保护判断代码、服务是否过期判断代码
+    char intf[ORIENTSEC_GRPC_BUF_LEN];
+    char* service_name = get_service_name(
+        (char*)GRPC_SLICE_START_PTR(calld->path), intf, ORIENTSEC_GRPC_BUF_LEN);
+    if (service_name) {
+      if (!check_provider_request(service_name)) {
+        gpr_log(GPR_INFO,
+                "Cancel %s call from client because request number exceed max "
+                "concurrent request",
+                service_name);
+        //gpr_mu_lock(&calld->mu_state);
+        calld->state = ZOMBIED;
+        //gpr_mu_unlock(&calld->mu_state);
+        GRPC_CLOSURE_INIT(
+            &calld->kill_zombie_closure,
+            cancel_client_method_call_concurrent_request,
+            grpc_call_stack_element(grpc_call_get_call_stack(calld->call), 0),
+            grpc_schedule_on_exec_ctx);
+        GRPC_CLOSURE_SCHED(&calld->kill_zombie_closure,
+                           GRPC_ERROR_NONE);
+        return;
+      }
+    }
+    //-----end-----
+
     start_new_rpc(elem);
   } else {
     if (gpr_atm_full_cas(&calld->state, NOT_STARTED, ZOMBIED)) {
@@ -886,6 +934,8 @@ static void accept_stream(void* cd, grpc_transport* transport,
 static void channel_connectivity_changed(void* cd, grpc_error* error) {
   channel_data* chand = static_cast<channel_data*>(cd);
   grpc_server* server = chand->server;
+  // store client ip addr
+  char client_addr[32] = {0};
   if (chand->connectivity_state != GRPC_CHANNEL_SHUTDOWN) {
     grpc_transport_op* op = grpc_make_transport_op(nullptr);
     op->on_connectivity_state_change = &chand->channel_connectivity_changed;
@@ -895,9 +945,15 @@ static void channel_connectivity_changed(void* cd, grpc_error* error) {
                          op);
   } else {
     gpr_mu_lock(&server->mu_global);
+    strncpy(client_addr, grpc_channel_get_client_addr(chand->channel),32);
     destroy_channel(chand, GRPC_ERROR_REF(error));
     gpr_mu_unlock(&server->mu_global);
     GRPC_CHANNEL_INTERNAL_UNREF(chand->channel, "connectivity");
+
+    //----begin----
+    // 并发连接数判断，客户端连接断开，减少并发连接计数
+    decrease_provider_connection(NULL,client_addr);
+    //-----end-----
   }
 }
 
@@ -913,6 +969,19 @@ static void destroy_call_elem(grpc_call_element* elem,
                               const grpc_call_final_info* final_info,
                               grpc_closure* ignored) {
   call_data* calld = static_cast<call_data*>(elem->call_data);
+
+  //----begin----
+  // 调用完毕后，并发请求计数减一
+  if (calld) {
+    char intf[ORIENTSEC_GRPC_BUF_LEN];
+    char* ptr = get_service_name((char*)GRPC_SLICE_START_PTR(calld->path), intf,
+                                 ORIENTSEC_GRPC_BUF_LEN);
+    if (ptr) {
+      decrease_provider_request(intf);
+    }
+  }
+  //-----end-----
+
   calld->~call_data();
   channel_data* chand = static_cast<channel_data*>(elem->channel_data);
   server_unref(chand->server);

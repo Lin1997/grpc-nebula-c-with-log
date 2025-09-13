@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +30,13 @@ namespace grpc_core {
 
 LoadBalancingPolicy::LoadBalancingPolicy(const Args& args)
     : InternallyRefCountedWithTracing(&grpc_trace_lb_policy_refcount),
+      //----begin----
+      //provider_addr(""),
+      elem(NULL),
+      force_close(false),
+      hash_lb(NULL),
+      //----end----
+
       combiner_(GRPC_COMBINER_REF(args.combiner, "lb_policy")),
       client_channel_factory_(args.client_channel_factory),
       interested_parties_(grpc_pollset_set_create()),

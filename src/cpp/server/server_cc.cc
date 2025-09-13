@@ -1,5 +1,7 @@
 /*
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,6 +49,11 @@
 #include "src/cpp/client/create_channel_internal.h"
 #include "src/cpp/server/health/default_health_check_service.h"
 #include "src/cpp/thread_manager/thread_manager.h"
+
+//----begin---
+#include "orientsec_provider_intf.h"
+#include "orientsec_grpc_registy_intf.h"
+//----end-----
 
 namespace grpc {
 namespace {
@@ -175,6 +182,10 @@ class Server::SyncRequest final : public internal::CompletionQueueTag {
     grpc_completion_queue_destroy(cq_);
     cq_ = nullptr;
   }
+
+  //---begin----
+  internal::RpcServiceMethod* getServiceMethod() { return method_; }
+  //---end----
 
   void Request(grpc_server* server, grpc_completion_queue* notify_cq) {
     GPR_ASSERT(cq_ && !in_flight_);
@@ -382,7 +393,9 @@ class Server::CallbackRequest final : public internal::CompletionQueueTag {
       }
     }
   }
-
+  //---begin---
+  internal::RpcServiceMethod* getServiceMethod() { return method_; }
+  //---end---
   bool FinalizeResult(void** tag, bool* status) override { return false; }
 
  private:
@@ -625,6 +638,11 @@ class Server::SyncRequestThreadManager : public ThreadManager {
       Initialize();  // ThreadManager's Initialize()
     }
   }
+  //---begin----
+  std::vector<std::unique_ptr<SyncRequest>>* GetSyncRequest() {
+    return &sync_requests_;
+  }
+  //---end----
 
  private:
   Server* server_;
@@ -682,6 +700,8 @@ Server::Server(
 
   grpc_channel_args channel_args;
   args->SetChannelArgs(&channel_args);
+  // store version variable into server object
+  args->GetVersion(grpc_version_);
 
   for (size_t i = 0; i < channel_args.num_args; i++) {
     if (0 ==
@@ -702,6 +722,14 @@ Server::Server(
 Server::~Server() {
   {
     std::unique_lock<std::mutex> lock(mu_);
+
+    
+    //---begin----
+    providers_unregistry();
+    shutdown_registry();
+
+    //---end---
+
     if (callback_cq_ != nullptr) {
       callback_cq_->Shutdown();
     }
@@ -949,6 +977,52 @@ void Server::ShutdownInternal(gpr_timespec deadline) {
 
 void Server::Wait() {
   std::unique_lock<std::mutex> lock(mu_);
+
+  //----begin----
+  std::map<std::string, std::vector<std::string>> servicesMap;
+  for (auto it = sync_req_mgrs_.begin(); it != sync_req_mgrs_.end(); it++) {
+    std::vector<std::unique_ptr<SyncRequest>>* syncReqVec =
+        (*it)->GetSyncRequest();
+    if (syncReqVec->empty()) {
+      continue;
+    }
+    for (auto reqIt = syncReqVec->begin(); reqIt != syncReqVec->end();
+         reqIt++) {
+      if (reqIt->get() == nullptr) {
+        continue;
+      }
+      SyncRequest* req = reqIt->get();
+      std::string methods = req->getServiceMethod()->name();
+      if (0 == strcmp(methods.c_str(), "unknown")) {
+        continue;
+      }
+      std::string serviceName, serviceMethod;
+      std::stringstream ss(methods);
+      std::getline(ss, serviceName, '/');
+      std::getline(ss, serviceName, '/');
+      std::getline(ss, serviceMethod, '/');
+      servicesMap[serviceName].push_back(serviceMethod);
+    }
+  }
+  std::map<string, std::vector<std::string>>::iterator serviceIt =
+      servicesMap.begin();
+
+  while (serviceIt != servicesMap.end()) {
+    std::string serviceName = serviceIt->first;
+    std::string methods;
+    for (auto it = serviceIt->second.begin(); it != serviceIt->second.end();
+         it++) {
+      if (it != serviceIt->second.begin()) {
+        methods += ",";
+      }
+      methods += *it;
+    }
+    // sync registry
+    provider_registry(ports_.empty() ? 0 : ports_[0], serviceName.c_str(),
+                      methods.c_str(), grpc_version_.c_str());
+    serviceIt++;
+  }
+  //-----end-----
   while (started_ && !shutdown_notified_) {
     shutdown_cv_.wait(lock);
   }

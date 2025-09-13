@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -219,6 +221,9 @@ class Server : public ServerInterface, private GrpcLibraryCodegen {
                         internal::Call* call) override;
 
   void ShutdownInternal(gpr_timespec deadline) override;
+  //---begin---
+  void putPort(int port_) { ports_.push_back(port_); }
+  //---end----
 
   int max_receive_message_size() const override {
     return max_receive_message_size_;
@@ -271,6 +276,11 @@ class Server : public ServerInterface, private GrpcLibraryCodegen {
 
   std::unique_ptr<HealthCheckServiceInterface> health_check_service_;
   bool health_check_service_disabled_;
+
+  //---begin---
+  std::vector<int> ports_;
+  std::string grpc_version_;
+  //---end---
 
   // A special handler for resource exhausted in sync case
   std::unique_ptr<internal::MethodHandler> resource_exhausted_handler_;

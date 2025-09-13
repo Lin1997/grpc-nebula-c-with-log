@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,6 +92,14 @@ class LoadBalancingPolicy
     PickState* next = nullptr;
   };
 
+  //----begin----
+  char provider_addr[25] = {0}; // 传递ip地址
+  void* elem; // 存放elem对象
+  bool force_close; // 强制结束, 在没有可选的subchannel的情况下
+  // add by yang
+  char* hash_lb = NULL;
+  //-----end-----
+
   // Not copyable nor movable.
   LoadBalancingPolicy(const LoadBalancingPolicy&) = delete;
   LoadBalancingPolicy& operator=(const LoadBalancingPolicy&) = delete;
@@ -146,6 +156,17 @@ class LoadBalancingPolicy
   /// TODO(roth): As part of restructuring how we handle IDLE state,
   /// consider whether this method is still needed.
   virtual void ExitIdleLocked() GRPC_ABSTRACT;
+
+  //----begin----
+  // 根据provider_addr决定是否在lb中添加channel或者选择channel, 用于下次连接
+  virtual void UpdateLbSubchannelLocked(LoadBalancingPolicy* lb_policy,
+                                        char* provider_addr) GRPC_ABSTRACT;
+
+  virtual void ClearLbSubchannelLocked(LoadBalancingPolicy* lb_policy,
+                                       char** provider_addr) GRPC_ABSTRACT;
+
+  virtual void TransferArgToProviderIP(const Args& args) GRPC_ABSTRACT;
+  //----end----
 
   /// Resets connection backoff.
   virtual void ResetBackoffLocked() GRPC_ABSTRACT;

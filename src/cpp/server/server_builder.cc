@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015-2016 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +19,12 @@
  */
 
 #include <grpcpp/server_builder.h>
+
+//---begin---
+#include <sstream>
+#include "orientsec_provider_intf.h"
+//#include "orientsec_grpc_registy_intf.h"
+//---end---
 
 #include <grpc/support/cpu.h>
 #include <grpc/support/log.h>
@@ -361,6 +369,9 @@ std::unique_ptr<Server> ServerBuilder::BuildAndStart() {
       if (added_port) server->Shutdown();
       return nullptr;
     }
+    //---begin----
+    server->putPort(r);
+    //---end---
     added_port = true;
     if (port->selected_port != nullptr) {
       *port->selected_port = r;
@@ -373,7 +384,59 @@ std::unique_ptr<Server> ServerBuilder::BuildAndStart() {
   for (auto plugin = plugins_.begin(); plugin != plugins_.end(); plugin++) {
     (*plugin)->Finish(initializer);
   }
+  //----begin---
+  // add service registry for asynchorously call
+  std::map<std::string, std::vector<std::string>> servicesMap;
+  if (!has_sync_methods) {
+    // 1. get the service name and method
+    for (auto service = services_.begin(); service != services_.end();service++) {
+    /*  for (int i = 0; i < (*service)->service->methods_.size(); i++)
+          {
+            RpcServiceMethod *method = (*service)->service->methods_[i].get();
+            std::string ss = method[i].name();
+          }*/
+      for (auto it = (*service)->service->methods_.begin(); it != (*service)->service->methods_.end(); it++)
+      {
+        std::string methods = (*it)->name();
+        std::string serviceName, serviceMethod;
+        std::stringstream ss(methods);
+        std::getline(ss, serviceName, '/');
+        std::getline(ss, serviceName, '/');         
+        std::getline(ss, serviceMethod, '/');
+        servicesMap[serviceName].push_back(serviceMethod);
+      }
+    }
+  // 2. get port number of the service
+  std::map<string, std::vector<std::string>>::iterator serviceIt = servicesMap.begin();
+  std::string address, ip, addr;
+  int port;
+  auto it = ports_.begin();
+  address = it->addr;
+  std::stringstream ss(address);
+  std::getline(ss, ip, ':');
+  std::getline(ss, addr, ':');
+  port = atoi(addr.c_str());
 
+  std::string version;
+  args.GetVersion(version);
+
+  while (serviceIt != servicesMap.end())
+  {
+    std::string serviceName = serviceIt->first;
+    std::string methods;
+    for (auto it = serviceIt->second.begin(); it != serviceIt->second.end(); it++) {
+      if (it != serviceIt->second.begin())
+      {
+        methods += ",";
+      }
+      methods += *it;
+    }
+    // Asynchorously provider registry
+    provider_registry(ports_.empty() ? 0 : port, serviceName.c_str(), methods.c_str(),version.c_str());
+    serviceIt++;
+  }
+
+ }
   return server;
 }
 

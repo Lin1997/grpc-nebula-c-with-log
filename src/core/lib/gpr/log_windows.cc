@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,8 +24,11 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <direct.h>
+#include <io.h>
 
 #include <grpc/support/alloc.h>
+#include <grpc/support/atm.h>
 #include <grpc/support/log.h>
 #include <grpc/support/log_windows.h>
 #include <grpc/support/string_util.h>
@@ -31,6 +36,8 @@
 
 #include "src/core/lib/gpr/string.h"
 #include "src/core/lib/gpr/string_windows.h"
+
+extern gpr_atm g_print_target;
 
 void gpr_log(const char* file, int line, gpr_log_severity severity,
              const char* format, ...) {
@@ -92,11 +99,36 @@ void gpr_default_log(gpr_log_func_args* args) {
     strcpy(time_buffer, "error:strftime");
   }
 
-  fprintf(stderr, "%s%s.%09u %5lu %s:%d] %s\n",
-          gpr_log_severity_string(args->severity), time_buffer,
-          (int)(now.tv_nsec), GetCurrentThreadId(), display_file, args->line,
-          args->message);
-  fflush(stderr);
+  // control to print to log file by user
+  if(g_print_target) {
+    const char* folder = ".\\logs"; 
+
+    FILE* fp;
+    if (0 != access(folder, 0)) {
+      mkdir(folder);
+    }
+
+    if ((fp = fopen("logs\\nebula.log", "a+")) == NULL) {
+      printf("Fail to open log file!");
+      exit(0);
+    }
+      fprintf(fp, "%s%s.%09u %5lu %s:%d] %s\n",
+             gpr_log_severity_string(args->severity), time_buffer,
+             (int)(now.tv_nsec), GetCurrentThreadId(), display_file, args->line,
+             args->message);
+     fclose(fp);
+  } else {
+    // print to stderr default
+    fprintf(stderr, "%s%s.%09u %5lu %s:%d] %s\n",
+            gpr_log_severity_string(args->severity), time_buffer,
+            (int)(now.tv_nsec), GetCurrentThreadId(), display_file, args->line,
+            args->message);
+    fflush(stderr);
+
+  }
+    
 }
+
+long orientsec_grpc_thdid_get() { return GetCurrentThreadId(); }
 
 #endif /* GPR_WINDOWS_LOG */

@@ -80,6 +80,13 @@ void ClientContext::AddMetadata(const grpc::string& meta_key,
   send_initial_metadata_.insert(std::make_pair(meta_key, meta_value));
 }
 
+void ClientContext::reset_call() {
+  if (call_) {
+    grpc_call_unref(call_);
+    call_ = nullptr;
+  }
+}
+
 void ClientContext::set_call(grpc_call* call,
                              const std::shared_ptr<Channel>& channel) {
   std::unique_lock<std::mutex> lock(mu_);

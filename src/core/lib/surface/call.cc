@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,6 +58,9 @@
 #include "src/core/lib/transport/status_metadata.h"
 #include "src/core/lib/transport/transport.h"
 
+#include "orientsec_consumer_intf.h"
+
+
 /** The maximum number of concurrent batches possible.
     Based upon the maximum number of individually queueable ops in the batch
     api:
@@ -71,6 +76,10 @@
 
 // Used to create arena for the first call.
 #define ESTIMATED_MDELEM_COUNT 16
+
+// Used for hash algo transfering
+#define MAX_COPY_LENGTH 64
+
 
 struct batch_control {
   batch_control() { gpr_ref_init(&steps_to_complete, 0); }
@@ -255,6 +264,10 @@ struct grpc_call {
     For 1, 4: See receiving_initial_metadata_ready() function
     For 2, 3: See receiving_stream_ready() function */
   gpr_atm recv_state = 0;
+
+  // add by yang
+  char hash_info[64] = {0};
+  char call_name[64] = {0};
 };
 
 grpc_core::TraceFlag grpc_call_error_trace(false, "call_error");
@@ -1976,4 +1989,72 @@ const char* grpc_call_error_to_string(grpc_call_error error) {
       return "GRPC_CALL_OK";
   }
   GPR_UNREACHABLE_CODE(return "GRPC_CALL_ERROR_UNKNOW");
+}
+
+void grpc_set_call_provider_addr(grpc_call* channel_call,
+                                 const char* provider_addr) {
+  if (!channel_call || !provider_addr) {
+    return;
+  }
+  grpc_set_channel_provider_addr(channel_call->channel, provider_addr);
+}
+
+grpc_call* grpc_get_call_from_call_stack(grpc_call_stack* call_stack) {
+  if (!call_stack) {
+    return NULL;
+  }
+  return CALL_FROM_CALL_STACK(call_stack);
+}
+
+grpc_call* grpc_get_call_from_top_elem(grpc_call_element* elem) {
+  if (!elem) {
+    return NULL;
+  }
+  grpc_call_element* pre_elem = elem;
+  grpc_call* call = CALL_FROM_TOP_ELEM(pre_elem);
+  return call;
+}
+
+char* grpc_get_call_target(grpc_call* channel_call) {
+  if (!channel_call) {
+    return NULL;
+  }
+  return grpc_get_channel_target_addr(channel_call->channel);
+}
+
+grpc_channel* orientsec_grpc_call_get_channel(grpc_call* call) {
+  return call->channel;
+}
+
+char* orientsec_grpc_call_serverhost(grpc_call* call) {
+  if (call->destroy_called) {
+    return NULL;
+  }
+  return grpc_get_channel_provider_addr(call->channel);
+}
+
+char* orientsec_grpc_call_provider_addr_get(grpc_call* call) {
+  if (call->destroy_called) {
+    return NULL;
+  }
+  return grpc_get_channel_provider_addr(call->channel);
+}
+char* orientsec_grpc_call_get_reginfo(grpc_call* call) {
+  if (call->destroy_called) return NULL;
+  return grpc_get_channel_client_reginfo(call->channel);
+}
+
+void orientsec_grpc_setcall_hashinfo(grpc_call* call, const char* s) {
+  strncpy(call->hash_info, s, MAX_COPY_LENGTH);
+}
+char* orientsec_grpc_getcall_hashinfo(grpc_call* call) {
+  return call->hash_info;
+}
+
+void orientsec_grpc_setcall_methodname(grpc_call* call, const char* s) {
+  strncpy(call->call_name, s, MAX_COPY_LENGTH);
+}
+
+char* orientsec_grpc_getcall_methodname(grpc_call* call) {
+  return call->call_name;
 }

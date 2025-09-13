@@ -5,7 +5,9 @@
 # This file can be regenerated from the template by running
 # tools/buildgen/generate_projects.sh
 
-# Copyright 2015 gRPC authors.
+# Copyright 2015 gRPC authors. 
+# Modifications 2019 Orient Securities Co., Ltd.
+# Modifications 2019 BoCloud Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -448,6 +450,10 @@ LDFLAGS += $(ARCH_FLAGS)
 LDLIBS += $(addprefix -l, $(LIBS))
 LDLIBSXX += $(addprefix -l, $(LIBSXX))
 
+CPPFLAGS += -I$(BUILDDIR_ABSOLUTE)/third_party/orientsec/orientsec_common -I$(BUILDDIR_ABSOLUTE)/third_party/orientsec/orientsec_registry -I$(BUILDDIR_ABSOLUTE)/third_party/orientsec/orientsec_provider -I$(BUILDDIR_ABSOLUTE)/third_party/orientsec/orientsec_consumer 
+LDFLAGS +=-L$(BUILDDIR_ABSOLUTE)/third_party/orientsec/orientsec_common -L$(BUILDDIR_ABSOLUTE)/third_party/orientsec/orientsec_registry -L$(BUILDDIR_ABSOLUTE)/third_party/orientsec/orientsec_provider -L$(BUILDDIR_ABSOLUTE)/third_party/orientsec/orientsec_consumer
+FLDLIBS +=-lorientsec_common -lorientsec_registry -lorientsec_provider -lorientsec_consumer
+#add by liumin
 
 CFLAGS += $(EXTRA_CFLAGS)
 CXXFLAGS += $(EXTRA_CXXFLAGS)
@@ -3518,6 +3524,7 @@ LIBGRPC_SRC = \
     src/core/lib/iomgr/resolve_address_custom.cc \
     src/core/lib/iomgr/resolve_address_posix.cc \
     src/core/lib/iomgr/resolve_address_windows.cc \
+	src/core/lib/iomgr/zk_resolve_address.cc \
     src/core/lib/iomgr/resource_quota.cc \
     src/core/lib/iomgr/sockaddr_utils.cc \
     src/core/lib/iomgr/socket_factory_posix.cc \
@@ -3771,6 +3778,9 @@ LIBGRPC_SRC = \
     src/core/ext/filters/workarounds/workaround_cronet_compression_filter.cc \
     src/core/ext/filters/workarounds/workaround_utils.cc \
     src/core/plugin_registry/grpc_plugin_registry.cc \
+	src/core/lib/extend/orientsec_grpc_extend_init.c \
+	src/core/ext/filters/client_channel/resolver/zookeeper/zookeeper_resolver.cc \
+	#end by liumin LIBGPR_TEST_UTIL_OBJS
 
 PUBLIC_HEADERS_C += \
     include/grpc/impl/codegen/byte_buffer.h \
@@ -3809,6 +3819,9 @@ PUBLIC_HEADERS_C += \
     include/grpc/status.h \
     include/grpc/support/workaround_list.h \
     include/grpc/census.h \
+	src/core/lib/extend/orientsec_grpc_extend_init.h \
+	src/core/lib/iomgr/zk_resolve_address.h \
+	#end by liumin LIBGPR_TEST_UTIL_OBJS
 
 LIBGRPC_OBJS = $(addprefix $(OBJDIR)/$(CONFIG)/, $(addsuffix .o, $(basename $(LIBGRPC_SRC))))
 

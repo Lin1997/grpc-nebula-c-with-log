@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -117,5 +119,12 @@ grpc_compression_algorithm grpc_call_compression_for_level(
 
 extern grpc_core::TraceFlag grpc_call_error_trace;
 extern grpc_core::TraceFlag grpc_compression_trace;
+
+void grpc_set_call_provider_addr(grpc_call* channel_call,const char* provider_addr);
+
+grpc_call* grpc_get_call_from_call_stack(grpc_call_stack* call_stack);
+
+grpc_call* grpc_get_call_from_top_elem(grpc_call_element* elem);
+
 
 #endif /* GRPC_CORE_LIB_SURFACE_CALL_H */

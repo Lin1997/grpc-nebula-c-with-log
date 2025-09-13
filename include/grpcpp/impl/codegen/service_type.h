@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,6 +61,9 @@ class Service {
  public:
   Service() : server_(nullptr) {}
   virtual ~Service() {}
+  //---begin---
+  std::vector<std::unique_ptr<internal::RpcServiceMethod>> methods_;
+  //---end---
 
   bool has_async_methods() const {
     for (auto it = methods_.begin(); it != methods_.end(); ++it) {
@@ -231,7 +236,7 @@ class Service {
   friend class Server;
   friend class ServerInterface;
   ServerInterface* server_;
-  std::vector<std::unique_ptr<internal::RpcServiceMethod>> methods_;
+  //std::vector<std::unique_ptr<internal::RpcServiceMethod>> methods_;
 };
 
 }  // namespace grpc

@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2016 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -132,6 +134,12 @@ enum StatusCode {
 
   /// Unrecoverable data loss or corruption.
   DATA_LOSS = 15,
+
+  //----begin---- addbyhuyn
+  /// Exceeded maximum requests
+  EXCEEDING_REQUESTS = 16,
+  //-----end-----
+
 
   /// Force users to include a default branch:
   DO_NOT_USE = -1

@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,6 +47,10 @@
 #include "src/core/lib/slice/slice_internal.h"
 #include "src/core/lib/surface/api_trace.h"
 #include "src/core/lib/surface/server.h"
+
+//----begin----
+#include "orientsec_provider_intf.h"
+//----end----
 
 typedef struct {
   grpc_server* server;
@@ -190,6 +196,21 @@ static void on_accept(void* arg, grpc_endpoint* tcp,
                       grpc_tcp_server_acceptor* acceptor) {
   server_state* state = static_cast<server_state*>(arg);
   gpr_mu_lock(&state->mu);
+
+  //----begin---- 并发连接数判断
+  char* client_addr = grpc_endpoint_get_peer(tcp);
+  // comment_debug_begin
+  if (!check_provider_connection(NULL,client_addr)) {
+    gpr_log(GPR_ERROR, ORIENTSEC_GRPC_PROVIDER_TOO_MANY_CONNS);
+    gpr_mu_unlock(&state->mu);
+    grpc_endpoint_shutdown(tcp, GRPC_ERROR_CREATE_FROM_STATIC_STRING(ORIENTSEC_GRPC_PROVIDER_TOO_MANY_CONNS));
+    grpc_endpoint_destroy(tcp);
+    gpr_free(acceptor);
+    return;
+  }
+  // comment_debug_end
+  //-----end-----
+
   if (state->shutdown) {
     gpr_mu_unlock(&state->mu);
     grpc_endpoint_shutdown(tcp, GRPC_ERROR_NONE);

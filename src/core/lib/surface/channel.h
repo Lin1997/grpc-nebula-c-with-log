@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -85,4 +87,12 @@ void grpc_channel_internal_unref(grpc_channel* channel);
 grpc_compression_options grpc_channel_compression_options(
     const grpc_channel* channel);
 
+//add by liumin
+void grpc_set_channel_provider_addr(grpc_channel* channel,
+                                    const char* provider_addr);
+char* grpc_get_channel_target_addr(grpc_channel* channel);
+
+
+
+//-----end by liumin-----
 #endif /* GRPC_CORE_LIB_SURFACE_CHANNEL_H */

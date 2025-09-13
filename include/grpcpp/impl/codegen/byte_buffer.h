@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2017 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -206,6 +208,12 @@ class SerializationTraits<ByteBuffer, void> {
     *own_buffer = true;
     return Status::OK;
   }
+  //----begin----build adaption by jianbin
+  static string callSerialize(const ByteBuffer& byte_buffer) {
+    string ss(0);
+    return ss;
+  }
+  //----end----
 };
 
 }  // namespace grpc

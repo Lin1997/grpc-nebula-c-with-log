@@ -1,85 +1,29 @@
-gRPC - An RPC library and framework
-===================================
+# 微服务治理框架(C++版)
 
-gRPC is a modern, open source, high-performance remote procedure call (RPC) framework that can run anywhere. gRPC enables client and server applications to communicate transparently, and simplifies the building of connected systems.
+## 1. 项目简介
 
-<table>
-  <tr>
-    <td><b>Homepage:</b></td>
-    <td><a href="https://grpc.io/">grpc.io</a></td>
-  </tr>
-  <tr>
-    <td><b>Mailing List:</b></td>
-    <td><a href="https://groups.google.com/forum/#!forum/grpc-io">grpc-io@googlegroups.com</a></td>
-  </tr>
-</table>
+微服务治理框架(C++版)，基于开源项目 [grpc-c](https://github.com/grpc/grpc) 进行开发，新增如下特性：
 
-[![Join the chat at https://gitter.im/grpc/grpc](https://badges.gitter.im/grpc/grpc.svg)](https://gitter.im/grpc/grpc?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+- 服务自动注册与发现。采用zookeeper为注册中心，服务与注册中心之间保持长链接，具有心跳检测机制，能够周期性的检查服务的状态，确保服务可用性状态一致性，可处理服务进程意外终止、服务器宕机等场景。
+- 服务调用负载均衡。对于多实例的服务的调用，提供对多个服务实例的负载均衡调度，实现负载按照预定的调度算法进行调度执行。
+- 服务流量控制。通过设置请求数或连接数上限，动态实现对各服务接口的流控管理。
+- 服务访问控制与黑白名单机制。提供多种形式的服务访问控制策略，能够根据设定的安全策略对调用者进行安全检查，支持黑白名单等安全机制。
+- 服务调用异常处理。当一个服务有多个服务器实例时，如果客户端调用A服务器连续多次出错，框架会自动将了客户端的HTTP/2连接切换到提供相同服务的B服务器。
+- 服务端支持主备切换
+- 区分内部外部服务，内部服务外部服务分别注册到不同的注册中心
+- 支持注册中心断线自动重连最长时间配置
+- 注册中心容灾、降级
 
-# To start using gRPC
+## 2. 项目背景
 
-To maximize usability, gRPC supports the standard method for adding dependencies to a user's chosen language (if there is one).
-In most languages, the gRPC runtime comes as a package available in a user's language package manager.
+微服务治理框架是由东方证券和博云联合开发。
 
-For instructions on how to use the language-specific gRPC runtime for a project, please refer to these documents
+随着东方证券业务的多年发展，已有大量的业务及支撑系统上线运营对外提供服务，服务与服务之间开始呈现复杂的依赖关系，系统运维的复杂度急剧增加。特别是由于以往系统建设主要由各厂商开发等因素的影响，东方证券内部存在大量的异构业务系统，对外暴露的接口也呈现多种形式，进一步增加了系统开发、运维的难度。
 
- * [C++](src/cpp): follow the instructions under the `src/cpp` directory
- * [C#](src/csharp): NuGet package `Grpc`
- * [Dart](https://github.com/grpc/grpc-dart): pub package `grpc`
- * [Go](https://github.com/grpc/grpc-go): `go get google.golang.org/grpc`
- * [Java](https://github.com/grpc/grpc-java): Use JARs from Maven Central Repository
- * [Node](https://github.com/grpc/grpc-node): `npm install grpc`
- * [Objective-C](src/objective-c): Add `gRPC-ProtoRPC` dependency to podspec
- * [PHP](src/php): `pecl install grpc`
- * [Python](src/python/grpcio): `pip install grpcio`
- * [Ruby](src/ruby): `gem install grpc`
- * [WebJS](https://github.com/grpc/grpc-web): follow the grpc-web instructions
+东方证券内已经建设或正在建设的业务系统种类繁多，包括网上交易、APP、互联网中台、集中交易、账户系统、清算系统等，除此之外还有很多正在规划的业务系统。各业务系统一般由不同的项目团队或供应商开发，并交付给东方证券的系统运行部门统一运维，在这个过程中存在诸多问题。
 
-Per-language quickstart guides and tutorials can be found in the [documentation section on the grpc.io website](https://grpc.io/docs/). Code examples are available in the [examples](examples) directory.
+针对以上需求，同时根据东方证券大中台能力中心整体建设规划，基于gRPC框架技术，新增服务治理特性，构建微服务治理平台，从而实现东方证券内部及外部服务的统一化管理，构建服务调用关系及拓扑结构，优化改进服务质量。
 
-Precompiled bleeding-edge package builds of gRPC `master` branch's `HEAD` are uploaded daily to [packages.grpc.io](https://packages.grpc.io).
+## 3. [开发环境搭建与配置](./docs/微服务治理框架(C%2B%2B版)开发环境搭建与配置Windows版.md)
 
-# To start developing gRPC
-
-Contributions are welcome!
-
-Please read [How to contribute](CONTRIBUTING.md) which will guide you through the entire workflow of how to build the source code, how to run the tests, and how to contribute changes to
-the gRPC codebase.
-The "How to contribute" document also contains info on how the contribution process works and contains best practices for creating contributions.
-
-# Troubleshooting
-
-Sometimes things go wrong. Please check out the [Troubleshooting guide](TROUBLESHOOTING.md) if you are experiencing issues with gRPC.
-
-# Performance 
-
-See the [Performance dashboard](http://performance-dot-grpc-testing.appspot.com/explore?dashboard=5636470266134528) for performance numbers of the latest released version.
-
-# Concepts
-
-See [gRPC Concepts](CONCEPTS.md)
-
-# About This Repository
-
-This repository contains source code for gRPC libraries implemented in multiple languages written on top of a shared C core library [src/core](src/core).
-
-Libraries in different languages may be in various states of development. We are seeking contributions for all of these libraries:
-
-| Language                | Source                              |
-|-------------------------|-------------------------------------|
-| Shared C [core library] | [src/core](src/core)                |
-| C++                     | [src/cpp](src/cpp)                  |
-| Ruby                    | [src/ruby](src/ruby)                |
-| Python                  | [src/python](src/python)            |
-| PHP                     | [src/php](src/php)                  |
-| C#                      | [src/csharp](src/csharp)            |
-| Objective-C             | [src/objective-c](src/objective-c)  |
-
-| Language                | Source repo                                          |
-|-------------------------|------------------------------------------------------|
-| Java                    | [grpc-java](http://github.com/grpc/grpc-java)        |
-| Go                      | [grpc-go](http://github.com/grpc/grpc-go)            |
-| NodeJS                  | [grpc-node](https://github.com/grpc/grpc-node)       |
-| WebJS                   | [grpc-web](https://github.com/grpc/grpc-web)         |
-| Dart                    | [grpc-dart](https://github.com/grpc/grpc-dart)       |
-
+## 4. [开发手册](./docs/微服务治理框架(C%2B%2B版)开发手册Windows版.md)

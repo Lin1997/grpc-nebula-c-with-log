@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,6 +52,21 @@ typedef struct {
   size_t naddrs;
   grpc_resolved_address* addrs;
 } grpc_resolved_addresses;
+//----begin----
+typedef struct grpc_zk_address_resolver_vtable {
+  void (*resolve_address)(const char* addr, const char* default_port,
+                          grpc_pollset_set* interested_parties,
+                          grpc_closure* on_done,
+                          grpc_resolved_addresses** addresses,
+                          char* hasharg,
+                          char* meth_name);
+  grpc_error* (*blocking_resolve_address)(const char* name,
+                                          const char* default_port,
+                                          grpc_resolved_addresses** addresses,
+                                          char* hasharg,
+                                          char* meth_name);
+} grpc_zk_address_resolver_vtable;
+//----end----
 
 typedef struct grpc_address_resolver_vtable {
   void (*resolve_address)(const char* addr, const char* default_port,
@@ -60,7 +77,6 @@ typedef struct grpc_address_resolver_vtable {
                                           const char* default_port,
                                           grpc_resolved_addresses** addresses);
 } grpc_address_resolver_vtable;
-
 void grpc_set_resolver_impl(grpc_address_resolver_vtable* vtable);
 
 /* Asynchronously resolve addr. Use default_port if a port isn't designated

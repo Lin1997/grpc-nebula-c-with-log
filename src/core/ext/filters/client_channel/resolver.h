@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -100,6 +102,12 @@ class Resolver : public InternallyRefCountedWithTracing<Resolver> {
   }
 
   GRPC_ABSTRACT_BASE_CLASS
+
+  //----begin----
+  virtual void set_hash(char* input){};
+  virtual void set_meth_name(char* input){};
+  virtual void Resetting() GRPC_ABSTRACT;
+  //----end----
 
  protected:
   GPRC_ALLOW_CLASS_TO_USE_NON_PUBLIC_DELETE

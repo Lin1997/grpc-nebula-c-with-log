@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -93,5 +95,6 @@ void gpr_default_log(gpr_log_func_args* args) {
   fprintf(stderr, "%-60s %s\n", prefix, args->message);
   gpr_free(prefix);
 }
+long orientsec_grpc_thdid_get() { return gettid(); }
 
 #endif /* GPR_LINUX_LOG */

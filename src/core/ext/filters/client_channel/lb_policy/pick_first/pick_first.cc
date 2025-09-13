@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,6 +64,15 @@ class PickFirst : public LoadBalancingPolicy {
   void ResetBackoffLocked() override;
   void FillChildRefsForChannelz(channelz::ChildRefsList* child_subchannels,
                                 channelz::ChildRefsList* ignored) override;
+
+  //----begin----
+  grpc_client_channel_factory* factory;
+
+  grpc_channel_args* channel_args;
+
+  grpc_combiner* combiner_;
+
+  //-----end----
 
  private:
   ~PickFirst();

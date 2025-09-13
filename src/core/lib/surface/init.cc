@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,6 +54,11 @@
 #include "src/core/lib/transport/bdp_estimator.h"
 #include "src/core/lib/transport/connectivity_state.h"
 #include "src/core/lib/transport/transport_impl.h"
+
+//----begin----addbyhuyn
+//初始化服务跟踪信息发送队列
+#include "src/core/lib/extend/orientsec_grpc_extend_init.h"
+//-----end-----
 
 /* (generated) built in registry of plugins */
 extern void grpc_register_built_in_plugins(void);
@@ -148,6 +155,11 @@ void grpc_init(void) {
     /* no more changes to channel init pipelines */
     grpc_channel_init_finalize();
     grpc_iomgr_start();
+
+    //----begin----addbyhuyn
+    //初始化线程数、初始化队列
+    orientsec_grpc_extend_param_init();
+    //-----end-----
   }
   gpr_mu_unlock(&g_init_mu);
 

@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +28,11 @@
 #include <grpcpp/impl/codegen/server_context.h>
 #include <grpcpp/impl/codegen/service_type.h>
 #include <grpcpp/impl/codegen/status.h>
-
+//----begin----- add for hash algo
+#include <grpc/grpc.h>
+#include "../../orientsec/orientsec_common/orientsec_grpc_string_op.h"
+#include "../../orientsec/orientsec_consumer/orientsec_grpc_consumer_control_requests.h"
+//----end----
 namespace grpc {
 
 class CompletionQueue;
@@ -153,6 +159,36 @@ class ClientAsyncResponseReader final
       single_buf.ClientRecvStatus(context_, status);
       call_.PerformOps(&single_buf);
     }
+
+    //----begin----
+    // for consumer called failover  
+    grpc_call* call_obj = call_.call();
+    // get the method
+    auto* rpc_info = call_.client_rpc_info();
+    const char* called_method = rpc_info->method();
+    // obtain register info and provider host info
+    char* reg_info = orientsec_grpc_call_get_reginfo(call_obj);
+    char* prov_host = orientsec_grpc_call_serverhost(call_obj);
+    // if called okay, reset the failover data
+    if (status->ok()) {
+      // reset when customized call and last call was not okay
+      if (reg_info != NULL && (!last_call_status_)) {
+        reset_provider_failure(reg_info, prov_host, called_method);
+      }
+    } else {
+     
+        grpc_channel* chan_info = orientsec_grpc_call_get_channel(call_obj);
+        /*if (callobj != nullptr && callobj->is_client &&*/
+        if (!orientsec_grpc_channel_is_native(chan_info)) {
+          gpr_log(GPR_DEBUG, "terminate_with_error trigger failover... ");
+          record_provider_failure(grpc_get_channel_client_reginfo(chan_info),
+                                  grpc_get_channel_provider_addr(chan_info),
+                                  called_method);
+        }
+      
+      last_call_status_ = false;
+    }  
+    //----end----
   }
 
  private:
@@ -161,6 +197,34 @@ class ClientAsyncResponseReader final
   ::grpc::internal::Call call_;
   bool started_;
   bool initial_metadata_read_ = false;
+  bool last_call_status_ = true;
+
+  //----begin----
+  template <class W>
+  void set_hash(::grpc::internal::Call call,const W& request) {
+      //获得hash_arg,用于hash 算法
+      char buf[ORIENTSEC_GRPC_PROPERTY_KEY_MAX_LEN] = {0};
+
+      orientsec_grpc_properties_get_value(
+          ORIENTSEC_GRPC_PROPERTIES_C_CONSISTENT_HASH_ARG, NULL, buf);
+      // add by yang
+      // style s = "name:\"heiden111111\"\n"
+      std::string str = single_buf.GetMessageName(request);
+      //多个值要用map值存储，需要查找
+
+      std::map<std::string, std::string> map_;
+      std::vector<std::string> buf_vec;
+      orientsec_grpc_split_to_vec(buf, buf_vec, ",");
+      orientsec_grpc_split_to_map(str, map_, "\n");
+
+      std::string hash_arg;
+      orientsec_grpc_joint_hash_input(map_, buf_vec, hash_arg);
+
+      //传递给call 对象
+      orientsec_grpc_setcall_hashinfo(call.call(), hash_arg.c_str());
+
+    }
+    //----end----
 
   template <class W>
   ClientAsyncResponseReader(::grpc::internal::Call call, ClientContext* context,
@@ -169,6 +233,22 @@ class ClientAsyncResponseReader final
     // Bind the metadata at time of StartCallInternal but set up the rest here
     // TODO(ctiller): don't assert
     GPR_CODEGEN_ASSERT(single_buf.SendMessage(request).ok());
+    // Get the hash info from request object
+    // string str = single_buf.GetMessageName(request);
+    set_hash(call,request);
+
+    //----begin----
+    // get the method
+    auto* rpc_info = call_.client_rpc_info();
+    const char* call_method = rpc_info->method();
+    orientsec_grpc_setcall_methodname(call.call(), call_method);
+    // 判断是否大于最大允许请求数
+    if (orientsec_grpc_consumer_control_requests(call_method) == -1) {
+      Status state(StatusCode::EXCEEDING_REQUESTS,"Exceeding maximum requests");
+      //return;
+    }
+    //----end----
+
     single_buf.ClientSendClose();
     if (start) StartCallInternal();
   }

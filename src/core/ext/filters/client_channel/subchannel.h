@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -211,5 +213,7 @@ const char* grpc_get_subchannel_address_uri_arg(const grpc_channel_args* args);
 /// Returns a new channel arg encoding the subchannel address as a string.
 /// Caller is responsible for freeing the string.
 grpc_arg grpc_create_subchannel_address_arg(const grpc_resolved_address* addr);
+
+const char* grpc_get_subchannel_address_uri_char(grpc_subchannel* subchannel);
 
 #endif /* GRPC_CORE_EXT_FILTERS_CLIENT_CHANNEL_SUBCHANNEL_H */

@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2018 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -302,6 +304,10 @@ class CallOpSendMessage {
 
   template <class M>
   Status SendMessage(const M& message) GRPC_MUST_USE_RESULT;
+  //----begin----
+  template <class M>
+  string GetMessageName(const M& message)  GRPC_MUST_USE_RESULT;
+  //-----end-----
 
  protected:
   void AddOp(grpc_op* ops, size_t* nops) {
@@ -358,6 +364,12 @@ Status CallOpSendMessage::SendMessage(const M& message) {
   return SendMessage(message, WriteOptions());
 }
 
+//----begin----
+template <class M>
+string CallOpSendMessage::GetMessageName(const M& message) {
+  return SerializationTraits<M,void>::callSerialize(message);
+}
+//-----end-----
 template <class R>
 class CallOpRecvMessage {
  public:

@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +45,10 @@
 #include "src/core/lib/transport/connectivity_state.h"
 #include "src/core/lib/transport/static_metadata.h"
 
+//----begin----
+//import balance mode
+#include "orientsec_grpc_consumer_control_version.h"
+
 namespace grpc_core {
 
 TraceFlag grpc_lb_round_robin_trace(false, "round_robin");
@@ -73,6 +79,10 @@ class RoundRobin : public LoadBalancingPolicy {
   void ResetBackoffLocked() override;
   void FillChildRefsForChannelz(channelz::ChildRefsList* child_subchannels,
                                 channelz::ChildRefsList* ignored) override;
+
+  //----begin----write ip from args to provider_addr for connection mode
+  void TransferArgIpToProviderIP(const grpc_channel_args& args);
+  //----end----
 
  private:
   ~RoundRobin();
@@ -178,6 +188,9 @@ class RoundRobin : public LoadBalancingPolicy {
     size_t GetNextReadySubchannelIndexLocked();
     void UpdateLastReadySubchannelIndexLocked(size_t last_ready_index);
 
+    //----compare selected subchannel ip with provider ip
+    bool orientsec_grpc_item(size_t index, LoadBalancingPolicy* policy);
+
    private:
     size_t num_ready_ = 0;
     size_t num_connecting_ = 0;
@@ -233,6 +246,7 @@ RoundRobin::RoundRobin(const Args& args) : LoadBalancingPolicy(args) {
   gpr_mu_init(&child_refs_mu_);
   grpc_connectivity_state_init(&state_tracker_, GRPC_CHANNEL_IDLE,
                                "round_robin");
+  TransferArgIpToProviderIP(*args.args);
   UpdateLocked(*args.args, args.lb_config);
   if (grpc_lb_round_robin_trace.enabled()) {
     gpr_log(GPR_INFO, "[RR %p] Created with %" PRIuPTR " subchannels", this,
@@ -252,6 +266,20 @@ RoundRobin::~RoundRobin() {
   grpc_connectivity_state_destroy(&state_tracker_);
   grpc_subchannel_index_unref();
 }
+
+//----begin----
+void RoundRobin::TransferArgIpToProviderIP(const grpc_channel_args& args) {
+  const grpc_arg* arg = grpc_channel_args_find(&args, GRPC_ARG_LB_ADDRESSES);
+  grpc_lb_addresses* addresses =
+      static_cast<grpc_lb_addresses*>(arg->value.pointer.p);
+  grpc_resolved_address* addrs = &addresses->addresses[0].address;
+  // write ip info into lb in format:"ipv4:ip:port"
+  char* uri_str = grpc_sockaddr_to_uri(addrs);
+  sprintf(provider_addr, "%s", uri_str);
+  uri_str = nullptr;
+  //gpr_free(uri_str);
+}
+//----end----
 
 void RoundRobin::HandOffPendingPicksLocked(LoadBalancingPolicy* new_policy) {
   PickState* pick;
@@ -598,6 +626,35 @@ void RoundRobin::RoundRobinSubchannelData::ProcessConnectivityChangeLocked(
   RenewConnectivityWatchLocked();
 }
 
+//----begin----by yang
+// select readylist
+bool RoundRobin::RoundRobinSubchannelList::orientsec_grpc_item(
+    size_t index, LoadBalancingPolicy* policy) {
+  const char* host_info =
+      grpc_get_subchannel_address_uri_char(subchannel(index)->subchannel());
+  //printf("next suchannel host_info = %s\n", host_info);
+  unsigned int i = 0;
+  if (host_info == NULL) {
+    return false;
+  }
+  //memset(policy->provider_addr,0,sizeof(policy->provider_addr));
+  //host_info = strchr(host_info, ':') + 1;
+  if (strcmp(policy->provider_addr, "") == 0) {
+    for (i = 0; i < sizeof(policy->provider_addr) && i < strlen(host_info);
+         i++) {
+      policy->provider_addr[i] = host_info[i];
+    }
+    return true;
+  }
+
+  if (strcmp(policy->provider_addr, host_info) == 0) {
+    host_info = NULL;
+    return true;
+  }
+  return false;
+}
+//-----end-----
+
 /** Returns the index into p->subchannel_list->subchannels of the next
  * subchannel in READY state, or p->subchannel_list->num_subchannels if no
  * subchannel is READY.
@@ -612,7 +669,15 @@ RoundRobin::RoundRobinSubchannelList::GetNextReadySubchannelIndexLocked() {
             "), last_ready_index=%" PRIuPTR,
             policy(), num_subchannels(), last_ready_index_);
   }
+  //----begin----
+  //RoundRobin* p = static_cast<RoundRobin*>(policy());
+  LoadBalancingPolicy* p = policy();
+  bool is_request = is_request_loadbalance();
+  bool selected = false;  // select successfully or not
+  int ready_index = -1;
+  //----end----
   for (size_t i = 0; i < num_subchannels(); ++i) {
+    //算法核心, last_ready_index_ 为上次选的index
     const size_t index = (i + last_ready_index_ + 1) % num_subchannels();
     if (grpc_lb_round_robin_trace.enabled()) {
       gpr_log(
@@ -630,7 +695,24 @@ RoundRobin::RoundRobinSubchannelList::GetNextReadySubchannelIndexLocked() {
                 " of subchannel_list %p",
                 policy(), subchannel(index)->subchannel(), index, this);
       }
-      return index;
+      // 获取lb 里面的provider ip, 根据ready的subchannel中的ip进行比对,
+      // 如果 ready list中存在此ip, 返回此index 给 roundrobin pick
+      if (is_request && orientsec_grpc_item(index, p)) {
+        selected = true;
+        return index;
+      } else {
+        ready_index = index;
+      }
+      if (!is_request) { // connection
+        selected = true;
+        return index;
+      }
+    }
+  } // end for each subchannel
+  // fix one of invoked providers shut down abnormally, then consumer side crash
+  if ((!selected) && is_request) { // 平衡算法挑选的provider 处在不可用状态
+    if (ready_index >= 0) {
+      return ready_index;
     }
   }
   if (grpc_lb_round_robin_trace.enabled()) {

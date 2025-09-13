@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1063,6 +1065,12 @@ grpc_arg grpc_create_subchannel_address_arg(const grpc_resolved_address* addr) {
   return grpc_channel_arg_string_create(
       (char*)GRPC_ARG_SUBCHANNEL_ADDRESS,
       addr->len > 0 ? grpc_sockaddr_to_uri(addr) : gpr_strdup(""));
+}
+
+const char* grpc_get_subchannel_address_uri_char(grpc_subchannel* subchannel) {
+  if (subchannel->args)
+    return grpc_get_subchannel_address_uri_arg(subchannel->args);
+  return nullptr;
 }
 
 namespace grpc_core {

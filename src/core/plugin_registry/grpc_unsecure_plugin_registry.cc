@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2016 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +21,7 @@
 #include <grpc/support/port_platform.h>
 
 #include <grpc/grpc.h>
+#include "registry_factory.h"
 
 void grpc_http_filters_init(void);
 void grpc_http_filters_shutdown(void);
@@ -55,6 +58,11 @@ void grpc_client_authority_filter_shutdown(void);
 void grpc_workaround_cronet_compression_filter_init(void);
 void grpc_workaround_cronet_compression_filter_shutdown(void);
 
+// liumin add
+extern void grpc_resolver_zk_init(void);
+extern void grpc_resolver_zk_shutdown(void);
+// end
+
 void grpc_register_built_in_plugins(void) {
   grpc_register_plugin(grpc_http_filters_init,
                        grpc_http_filters_shutdown);
@@ -90,4 +98,12 @@ void grpc_register_built_in_plugins(void) {
                        grpc_client_authority_filter_shutdown);
   grpc_register_plugin(grpc_workaround_cronet_compression_filter_init,
                        grpc_workaround_cronet_compression_filter_shutdown);
+
+  // liumin add，zk库初始化以及zk resover插件注册
+  grpc_register_plugin(grpc_registry_zookeeper_init,
+                       grpc_registry_zookeeper_shutdown);
+
+  grpc_register_plugin(grpc_resolver_zk_init,
+                       grpc_resolver_zk_shutdown);
+  // end
 }

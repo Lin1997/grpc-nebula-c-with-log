@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -112,6 +114,8 @@ class SubchannelData {
   // TODO(roth): This method should go away when we move the backoff
   // code out of the subchannel and into the LB policies.
   void ResetBackoffLocked();
+
+  void WriteProvider();
 
   // Starts watching the connectivity state of the subchannel.
   // ProcessConnectivityChangeLocked() will be called when the

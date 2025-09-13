@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,6 +48,10 @@
 #include "src/core/lib/surface/channel_init.h"
 #include "src/core/lib/transport/static_metadata.h"
 
+//----begin-----
+#include "orientsec_consumer_intf.h"
+//---end---
+
 /** Cache grpc-status: X mdelems for X = 0..NUM_CACHED_STATUS_ELEMS.
  *  Avoids needing to take a metadata context lock for sending status
  *  if the status code is <= NUM_CACHED_STATUS_ELEMS.
@@ -72,6 +78,12 @@ struct grpc_channel {
   grpc_core::RefCountedPtr<grpc_core::channelz::ChannelNode> channelz_channel;
 
   char* target;
+
+  //add by liumin
+  char* reginfo;
+  char c_provider_addr[32];
+  char client_addr[32];
+  //end by liumin
 };
 
 #define CHANNEL_STACK_FROM_CHANNEL(c) ((grpc_channel_stack*)((c) + 1))
@@ -79,6 +91,7 @@ struct grpc_channel {
 static void destroy_channel(void* arg, grpc_error* error);
 
 grpc_channel* grpc_channel_create_with_builder(
+    grpc_transport* optional_transport,
     grpc_channel_stack_builder* builder,
     grpc_channel_stack_type channel_stack_type) {
   char* target = gpr_strdup(grpc_channel_stack_builder_get_target(builder));
@@ -87,6 +100,7 @@ grpc_channel* grpc_channel_create_with_builder(
   grpc_resource_user* resource_user =
       grpc_channel_stack_builder_get_resource_user(builder);
   grpc_channel* channel;
+  char* cust_frame_version = NULL;
   if (channel_stack_type == GRPC_SERVER_CHANNEL) {
     GRPC_STATS_INC_SERVER_CHANNELS_CREATED();
   } else {
@@ -125,6 +139,10 @@ grpc_channel* grpc_channel_create_with_builder(
 
   grpc_compression_options_init(&channel->compression_options);
   for (size_t i = 0; i < args->num_args; i++) {
+    //----begin---obtain frame version from channel
+    if (0 == strcmp(args->args->key, GRPC_ARG_PRIMARY_USER_AGENT_STRING))
+      cust_frame_version = args->args->value.string;
+    //----end---
     if (0 ==
         strcmp(args->args[i].key, GRPC_COMPRESSION_CHANNEL_DEFAULT_LEVEL)) {
       channel->compression_options.default_level.is_set = true;
@@ -169,6 +187,27 @@ grpc_channel* grpc_channel_create_with_builder(
       internal_channel = grpc_channel_arg_get_bool(&args->args[i], false);
     }
   }
+
+  // add element for server channel
+  if (channel->is_client == 0) {
+    grpc_endpoint* ge = grpc_transport_get_endpoint(optional_transport);
+    char* ip = grpc_endpoint_get_peer(ge);
+    sprintf(channel->client_addr, "%s", ip);
+  }
+
+  //----begin-----
+  // add for client register
+  if (channel && (channel->is_client == 1)) {
+    if (0 == strncmp(channel->target, "zookeeper", 9)) {
+      char* sn = orientsec_grpc_get_sn_from_target(channel->target);
+      channel->reginfo =
+          orientsec_grpc_consumer_register(sn, cust_frame_version);
+      if (sn) {
+        free(sn);
+      }
+    }
+  }
+  //-----end-----
 
   grpc_channel_args_destroy(args);
   // we only need to do the channelz bookkeeping for clients here. The channelz
@@ -242,7 +281,8 @@ grpc_channel* grpc_channel_create(const char* target,
     return nullptr;
   }
   grpc_channel* channel =
-      grpc_channel_create_with_builder(builder, channel_stack_type);
+      grpc_channel_create_with_builder(
+          optional_transport,builder, channel_stack_type);
   return channel;
 }
 
@@ -284,6 +324,12 @@ void grpc_channel_update_call_size_estimate(grpc_channel* channel,
 char* grpc_channel_get_target(grpc_channel* channel) {
   GRPC_API_TRACE("grpc_channel_get_target(channel=%p)", 1, (channel));
   return gpr_strdup(channel->target);
+}
+
+// return client_addr from grpc_channel struct
+char* grpc_channel_get_client_addr(grpc_channel* channel) {
+  if (!channel) return NULL;
+  return channel->client_addr;
 }
 
 void grpc_channel_get_info(grpc_channel* channel,
@@ -467,6 +513,14 @@ void grpc_channel_destroy(grpc_channel* channel) {
   grpc_channel_element* elem;
   grpc_core::ExecCtx exec_ctx;
   GRPC_API_TRACE("grpc_channel_destroy(channel=%p)", 1, (channel));
+  //----begin----
+  // addbydengjq  注销consumer
+  if (channel && channel->is_client == 1) {
+    if (channel->reginfo) {
+      orientsec_grpc_consumer_unregister(channel->reginfo);
+    }
+  }
+  //-----end-----
   op->disconnect_with_error =
       GRPC_ERROR_CREATE_FROM_STATIC_STRING("Channel Destroyed");
   elem = grpc_channel_stack_element(CHANNEL_STACK_FROM_CHANNEL(channel), 0);
@@ -498,3 +552,41 @@ grpc_mdelem grpc_channel_get_reffed_status_elem(grpc_channel* channel, int i) {
   return grpc_mdelem_from_slices(GRPC_MDSTR_GRPC_STATUS,
                                  grpc_slice_from_copied_string(tmp));
 }
+
+//add by liumin
+void grpc_set_channel_provider_addr(grpc_channel* channel,
+                                    const char* provider_addr) {
+  if (!channel || !provider_addr) {
+    return;
+  }
+  sprintf(channel->c_provider_addr, "%s", provider_addr);
+}
+
+char* grpc_get_channel_provider_addr(grpc_channel* channel) {
+  if (!channel) {
+    return NULL;
+  }
+  return channel->c_provider_addr;
+}
+char* grpc_get_channel_client_reginfo(grpc_channel* channel) {
+  if (!channel) {
+    return NULL;
+  }
+  return channel->reginfo;
+}
+
+char* grpc_get_channel_target_addr(grpc_channel* channel) {
+  if (!channel) {
+    return NULL;
+  }
+  return channel->target;
+}
+// end by liumin
+int orientsec_grpc_channel_is_native(grpc_channel* chl) {
+  if (chl->reginfo == NULL) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+

@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2018 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -131,7 +133,8 @@ void ProcessedResolverResult::ProcessLbPolicyName(
   }
   // Use pick_first if nothing was specified and we didn't select grpclb
   // above.
-  if (lb_policy_name == nullptr) lb_policy_name = "pick_first";
+  // modify by yang, use round robin algo for default
+  if (lb_policy_name == nullptr) lb_policy_name = "round_robin";
   lb_policy_name_.reset(gpr_strdup(lb_policy_name));
 }
 

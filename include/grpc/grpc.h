@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015-2016 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -283,6 +285,12 @@ GRPCAPI struct census_context* grpc_census_call_get_context(grpc_call* call);
     created for. */
 GRPCAPI char* grpc_channel_get_target(grpc_channel* channel);
 
+//----begin----
+/** Return a newly allocated string representing the client ip addr a channel
+*     was created for. */
+GRPCAPI char* grpc_channel_get_client_addr(grpc_channel* channel);
+//----end----
+
 /** Request info about the channel.
     \a channel_info indicates what information is being requested and
     how that information will be returned.
@@ -524,6 +532,41 @@ GRPCAPI char* grpc_channelz_get_subchannel(intptr_t subchannel_id);
 /* Returns a single Socket, or else a NOT_FOUND code. The returned string
    is allocated and must be freed by the application. */
 GRPCAPI char* grpc_channelz_get_socket(intptr_t socket_id);
+
+//----begin----
+void grpc_set_call_provider_addr(grpc_call* channel_call,
+                                 const char* provider_addr);
+
+char* grpc_get_call_target(grpc_call* channel_call);
+
+// 根据call对象获取server ip
+char* orientsec_grpc_call_serverhost(grpc_call* call);
+//----end----
+
+//----begin----
+// add by huyn 获取provider addr
+char* orientsec_grpc_call_provider_addr_get(grpc_call* call);
+
+char* orientsec_grpc_call_get_reginfo(grpc_call* call);
+
+// add by yang
+void orientsec_grpc_setcall_hashinfo(grpc_call* call, const char* s);
+
+char* orientsec_grpc_getcall_hashinfo(grpc_call* call);
+
+void orientsec_grpc_setcall_methodname(grpc_call* call, const char* s);
+
+char* orientsec_grpc_getcall_methodname(grpc_call* call);
+
+grpc_channel* orientsec_grpc_call_get_channel(grpc_call* call);
+//-----end-----
+
+// 校验是不是通过原生channel进行调用 1是原生channel 0非原生channel
+int orientsec_grpc_channel_is_native(grpc_channel* chl);
+//----begin----
+char* grpc_get_channel_provider_addr(grpc_channel* channel);
+char* grpc_get_channel_client_reginfo(grpc_channel* channel);
+//-----end-----
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,8 @@
 /*
  *
  * Copyright 2015 gRPC authors.
+ * Modifications 2019 Orient Securities Co., Ltd.
+ * Modifications 2019 BoCloud Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -105,6 +107,12 @@ template <class T>
 class SerializationTraits<T, typename std::enable_if<std::is_base_of<
                                  grpc::protobuf::Message, T>::value>::type> {
  public:
+  //----begin----
+  static string callSerialize(const grpc::protobuf::Message& msg) {
+    string ss;
+    return ss = msg.DebugString();
+  }
+  //-----end-----
   static Status Serialize(const grpc::protobuf::Message& msg, ByteBuffer* bb,
                           bool* own_buffer) {
     return GenericSerialize<ProtoBufferWriter, T>(msg, bb, own_buffer);
